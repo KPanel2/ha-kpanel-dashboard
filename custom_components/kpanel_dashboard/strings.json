@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KPanel Dashboard",
+        "description": "Select the Home Assistant user and dashboard path for KPanel kiosk auto-auth.",
+        "data": {
+          "user_id": "Home Assistant user",
+          "dashboard_path": "Dashboard path",
+          "hide_header": "Hide header",
+          "hide_sidebar": "Hide sidebar"
+        }
+      },
+      "confirm": {
+        "title": "Copy binding secret",
+        "description": "Paste this binding secret into the KPanel portal device HA binding fields. It is shown only once here (you can also re-open Configure on this integration later).\n\nUser: {username}\nDashboard: {dashboard_path}\nBinding secret: `{binding_secret}`"
+      }
+    },
+    "error": {
+      "unknown_user": "Selected user was not found or is inactive.",
+      "invalid_path": "Dashboard path is required."
+    },
+    "abort": {
+      "already_configured": "KPanel Dashboard is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KPanel Dashboard options",
+        "description": "Current binding secret: `{binding_secret}`\n\nUse this value as X-KPanel-Binding-Secret / portal HA binding secret.",
+        "data": {
+          "rotate_binding_secret": "Generate a new binding secret (invalidates the old one)"
+        }
+      }
+    }
+  }
+}
