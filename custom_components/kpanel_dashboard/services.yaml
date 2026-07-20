@@ -1,0 +1,3 @@
+rotate_tokens:
+  name: Rotate KPanel tokens
+  description: Revoke the current kiosk refresh token and mint a new one.

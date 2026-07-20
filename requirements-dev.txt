@@ -1,0 +1,8 @@
+pytest==8.0.2
+pytest-asyncio==0.23.5
+pytest-cov==4.1.0
+coverage==7.4.3
+homeassistant==2024.3.3
+pytest-homeassistant-custom-component==0.13.109
+josepy<2
+SQLAlchemy==2.0.27
