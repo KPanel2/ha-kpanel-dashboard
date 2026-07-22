@@ -11,6 +11,7 @@ CONF_BINDING_SECRET = "binding_secret"
 CONF_HIDE_HEADER = "hide_header"
 CONF_HIDE_SIDEBAR = "hide_sidebar"
 CONF_REFRESH_TOKEN_ID = "refresh_token_id"
+CONF_LOCAL_HASS_URL = "local_hass_url"
 
 DEFAULT_DASHBOARD_PATH = "/lovelace/kiosk"
 CLIENT_NAME = "KPanel Dashboard"

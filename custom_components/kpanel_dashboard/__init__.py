@@ -20,6 +20,7 @@ from .const import (
     SERVICE_ROTATE_TOKENS,
 )
 from .frontend import async_register_frontend
+from .hass_url import resolve_hass_base_url
 from .kiosk_config import KioskConfig
 from .rate_limit import BootstrapRateLimiter
 
@@ -28,17 +29,11 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[str] = []
 
 
-def _hass_base_url(hass: HomeAssistant) -> str:
-    return str(hass.config.external_url or hass.config.internal_url or "").rstrip(
-        "/"
-    )
-
-
 async def _ensure_entry_tokens(
     hass: HomeAssistant, entry: ConfigEntry, token_service: AuthTokenService
 ) -> None:
     config = KioskConfig.from_mapping(entry.data)
-    hass_url = _hass_base_url(hass) or "http://homeassistant.local:8123"
+    hass_url = resolve_hass_base_url(hass, entry_data=entry.data)
     try:
         _tokens, refresh_token_id = await token_service.mint_hass_tokens(
             user_id=config.user_id,
@@ -98,7 +93,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError("KPanel Dashboard is not configured")
         entry = entries[0]
         config = KioskConfig.from_mapping(entry.data)
-        hass_url = _hass_base_url(hass) or "http://homeassistant.local:8123"
+        hass_url = resolve_hass_base_url(hass, entry_data=entry.data)
         try:
             _tokens, refresh_token_id = await token_service.rotate_tokens(
                 user_id=config.user_id,
