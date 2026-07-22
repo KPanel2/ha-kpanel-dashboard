@@ -1,6 +1,17 @@
 # KPanel Dashboard (Home Assistant)
 
+<p align="center">
+  <img src="images/logo.png" alt="KPanel" width="280" />
+</p>
+
 HACS custom integration that pairs with [KPanel2](https://github.com/KPanel2/kpanel2) to auto-authenticate a Pi kiosk browser into a Home Assistant dashboard.
+
+Brand icons/logos under `custom_components/kpanel_dashboard/brand/` are generated from the KPanel2 [`brand_kit`](https://github.com/KPanel2/kpanel2/tree/main/brand_kit) (HA 2026.3+ local brands proxy). Regenerate with:
+
+```bash
+pip install pillow numpy
+python3 scripts/sync_brand_from_kit.py
+```
 
 ## What this provides
 

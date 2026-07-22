@@ -218,3 +218,17 @@ async def test_options_flow_keeps_secret_without_rotate(
     )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_BINDING_SECRET] == "keep-me-secret-abcdef"
+
+
+def test_options_flow_handler_does_not_assign_config_entry_property() -> None:
+    """HA 2025.12+ makes OptionsFlow.config_entry read-only; constructing must not set it."""
+    from custom_components.kpanel_dashboard.config_flow import OptionsFlowHandler
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Kiosk User",
+        data={CONF_BINDING_SECRET: "secret-value"},
+    )
+    handler = OptionsFlowHandler(entry)
+    assert handler.config_entry is entry
+    assert handler._config_entry is entry
