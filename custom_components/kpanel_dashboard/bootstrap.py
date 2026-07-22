@@ -19,6 +19,7 @@ from .const import (
     CONF_REFRESH_TOKEN_ID,
     DOMAIN,
 )
+from .hass_url import resolve_hass_base_url
 from .kiosk_config import KioskConfig
 from .rate_limit import BootstrapRateLimiter
 
@@ -133,12 +134,12 @@ class KPanelBootstrapView(HomeAssistantView):
             _LOGGER.warning("Bootstrap rate limit exceeded")
             return self.json_message("Rate limit exceeded", status_code=429)
 
-        hass_url = str(
-            self._hass.config.external_url
-            or self._hass.config.internal_url
-            or request.url.origin()
-        )
         entry = entries[0]
+        hass_url = resolve_hass_base_url(
+            self._hass,
+            entry_data=entry.data,
+            request_origin=str(request.url.origin()),
+        )
         try:
             hass_tokens, refresh_token_id = await self._tokens.mint_hass_tokens(
                 user_id=result.user_id,

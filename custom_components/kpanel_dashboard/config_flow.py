@@ -15,11 +15,13 @@ from .const import (
     CONF_DASHBOARD_PATH,
     CONF_HIDE_HEADER,
     CONF_HIDE_SIDEBAR,
+    CONF_LOCAL_HASS_URL,
     CONF_USER_ID,
     CONF_USERNAME,
     DEFAULT_DASHBOARD_PATH,
     DOMAIN,
 )
+from .hass_url import normalize_hass_base_url
 from .kiosk_config import KioskConfig
 
 
@@ -65,19 +67,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except ValueError:
                     errors[CONF_DASHBOARD_PATH] = "invalid_path"
                 else:
-                    self._pending_data = {
-                        CONF_USER_ID: user_id,
-                        CONF_USERNAME: users[user_id],
-                        CONF_DASHBOARD_PATH: dashboard_path,
-                        CONF_BINDING_SECRET: secrets.token_urlsafe(24),
-                        CONF_HIDE_HEADER: bool(
-                            user_input.get(CONF_HIDE_HEADER, True)
-                        ),
-                        CONF_HIDE_SIDEBAR: bool(
-                            user_input.get(CONF_HIDE_SIDEBAR, True)
-                        ),
-                    }
-                    return await self.async_step_confirm()
+                    local_url = user_input.get(CONF_LOCAL_HASS_URL)
+                    local_cleaned: str | None = None
+                    if isinstance(local_url, str) and local_url.strip():
+                        try:
+                            local_cleaned = normalize_hass_base_url(local_url)
+                        except ValueError:
+                            errors[CONF_LOCAL_HASS_URL] = "invalid_local_url"
+                    if not errors:
+                        self._pending_data = {
+                            CONF_USER_ID: user_id,
+                            CONF_USERNAME: users[user_id],
+                            CONF_DASHBOARD_PATH: dashboard_path,
+                            CONF_BINDING_SECRET: secrets.token_urlsafe(24),
+                            CONF_HIDE_HEADER: bool(
+                                user_input.get(CONF_HIDE_HEADER, True)
+                            ),
+                            CONF_HIDE_SIDEBAR: bool(
+                                user_input.get(CONF_HIDE_SIDEBAR, True)
+                            ),
+                            CONF_LOCAL_HASS_URL: local_cleaned,
+                        }
+                        return await self.async_step_confirm()
 
         schema = vol.Schema(
             {
@@ -85,6 +96,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_DASHBOARD_PATH, default=DEFAULT_DASHBOARD_PATH
                 ): str,
+                vol.Optional(CONF_LOCAL_HASS_URL): str,
                 vol.Optional(CONF_HIDE_HEADER, default=True): bool,
                 vol.Optional(CONF_HIDE_SIDEBAR, default=True): bool,
             }
@@ -106,7 +118,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="confirm",
-            data_schema=vol.Schema({}),
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "binding_secret_display",
+                        default=self._pending_data[CONF_BINDING_SECRET],
+                    ): str,
+                }
+            ),
             description_placeholders={
                 "binding_secret": self._pending_data[CONF_BINDING_SECRET],
                 "username": self._pending_data[CONF_USERNAME],
@@ -120,8 +139,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         # HA 2025.12+ made OptionsFlow.config_entry read-only; never assign it.
-        # Keep a private reference so this works on older and newer cores.
         self._config_entry = config_entry
+        self._revealed_secret: str | None = None
 
     @property
     def config_entry(self) -> config_entries.ConfigEntry:
@@ -130,23 +149,76 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        current_secret = self.config_entry.data.get(CONF_BINDING_SECRET, "")
+        current_secret = self.config_entry.data.get(CONF_BINDING_SECRET, "") or ""
+        current_local = self.config_entry.data.get(CONF_LOCAL_HASS_URL) or ""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            if user_input.get("rotate_binding_secret"):
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_BINDING_SECRET: secrets.token_urlsafe(24),
-                }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
-            return self.async_create_entry(title="", data={})
+            new_data = dict(self.config_entry.data)
+            local_url = user_input.get(CONF_LOCAL_HASS_URL)
+            if isinstance(local_url, str):
+                if local_url.strip():
+                    try:
+                        new_data[CONF_LOCAL_HASS_URL] = normalize_hass_base_url(
+                            local_url
+                        )
+                    except ValueError:
+                        errors[CONF_LOCAL_HASS_URL] = "invalid_local_url"
+                else:
+                    new_data[CONF_LOCAL_HASS_URL] = None
+
+            if not errors:
+                if user_input.get("rotate_binding_secret"):
+                    new_secret = secrets.token_urlsafe(24)
+                    new_data[CONF_BINDING_SECRET] = new_secret
+                    self._revealed_secret = new_secret
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry, data=new_data
+                    )
+                    return await self.async_step_show_secret()
+
+                if new_data != dict(self.config_entry.data):
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry, data=new_data
+                    )
+                return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
-                {vol.Optional("rotate_binding_secret", default=False): bool}
+                {
+                    vol.Optional(
+                        "binding_secret_display",
+                        default=current_secret,
+                    ): str,
+                    vol.Optional(
+                        CONF_LOCAL_HASS_URL,
+                        default=current_local if isinstance(current_local, str) else "",
+                    ): str,
+                    vol.Optional("rotate_binding_secret", default=False): bool,
+                }
             ),
             description_placeholders={"binding_secret": current_secret},
+            errors=errors,
+        )
+
+    async def async_step_show_secret(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show the rotated secret so it can be copied into KPanel."""
+        assert self._revealed_secret is not None
+        if user_input is not None:
+            return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="show_secret",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "binding_secret_display",
+                        default=self._revealed_secret,
+                    ): str,
+                }
+            ),
+            description_placeholders={"binding_secret": self._revealed_secret},
         )

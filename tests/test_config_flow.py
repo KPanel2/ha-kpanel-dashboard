@@ -162,7 +162,7 @@ async def test_user_step_invalid_dashboard_path(
 async def test_options_flow_shows_and_rotates_binding_secret(
     hass: HomeAssistant, enable_custom_integrations
 ) -> None:
-    """Options flow reveals current secret and can rotate it."""
+    """Options flow reveals current secret and shows the new one after rotate."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Kiosk User",
@@ -184,14 +184,24 @@ async def test_options_flow_shows_and_rotates_binding_secret(
         result["description_placeholders"]["binding_secret"]
         == "old-secret-value-123456"
     )
+    assert result["data_schema"].schema  # includes display field
 
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"rotate_binding_secret": True},
+        {"rotate_binding_secret": True, "binding_secret_display": "ignored"},
     )
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert entry.data[CONF_BINDING_SECRET] != "old-secret-value-123456"
-    assert len(entry.data[CONF_BINDING_SECRET]) >= 16
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["step_id"] == "show_secret"
+    new_secret = result2["description_placeholders"]["binding_secret"]
+    assert new_secret != "old-secret-value-123456"
+    assert len(new_secret) >= 16
+    assert entry.data[CONF_BINDING_SECRET] == new_secret
+
+    result3 = await hass.config_entries.options.async_configure(
+        result2["flow_id"],
+        {"binding_secret_display": new_secret},
+    )
+    assert result3["type"] == FlowResultType.CREATE_ENTRY
 
 
 async def test_options_flow_keeps_secret_without_rotate(
@@ -214,10 +224,15 @@ async def test_options_flow_keeps_secret_without_rotate(
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"rotate_binding_secret": False},
+        {
+            "rotate_binding_secret": False,
+            "binding_secret_display": "keep-me-secret-abcdef",
+            "local_hass_url": "http://172.16.24.1:8123",
+        },
     )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert entry.data[CONF_BINDING_SECRET] == "keep-me-secret-abcdef"
+    assert entry.data["local_hass_url"] == "http://172.16.24.1:8123"
 
 
 def test_options_flow_handler_does_not_assign_config_entry_property() -> None:

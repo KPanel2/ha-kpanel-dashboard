@@ -29,6 +29,17 @@ Auth is **not** done in Lovelace JS. Tokens are minted by this integration and i
 2. Install **KPanel Dashboard**.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → Add Integration → **KPanel Dashboard**.
+5. On the **Copy binding secret** screen, copy the secret (also shown in a text field). You can reopen **Configure** anytime to view or rotate it; after rotate, a follow-up screen shows the new secret.
+
+### LAN panels + public hostname
+
+If you browse HA at `https://homeassistant.example` but panels open a private IP:
+
+1. In the integration (setup or **Configure**), set **Local base URL for KPanel devices** to e.g. `http://172.16.24.1:8123`.
+2. In the KPanel portal, set the HA **bootstrap URL** to `http://172.16.24.1:8123/api/kpanel_dashboard/bootstrap`.
+3. Set each panel’s dashboard URL (or household template) to the same host, e.g. `http://172.16.24.1:8123/control-panel/{room}`.
+
+`hassTokens.hassUrl` must match the origin the Chromium kiosk opens. The remote KPanel config server only stores settings; devices call HA on the LAN.
 
 ## Security model
 
