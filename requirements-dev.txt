@@ -6,3 +6,5 @@ homeassistant==2024.3.3
 pytest-homeassistant-custom-component==0.13.109
 josepy<2
 SQLAlchemy==2.0.27
+Pillow>=10.0.0
+numpy>=1.26.0

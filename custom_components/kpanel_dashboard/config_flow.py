@@ -119,7 +119,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     """Reveal or rotate the binding secret after setup."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+        # HA 2025.12+ made OptionsFlow.config_entry read-only; never assign it.
+        # Keep a private reference so this works on older and newer cores.
+        self._config_entry = config_entry
+
+    @property
+    def config_entry(self) -> config_entries.ConfigEntry:
+        return self._config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
